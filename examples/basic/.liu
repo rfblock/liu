@@ -1,0 +1,3 @@
+BINARY_NAME a.out
+COMPILER_FLAGS -Wall -Werror -Wextra
+CC gcc

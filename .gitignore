@@ -1,0 +1,6 @@
+# Liu binary file
+liu
+
+# Compiled objects/binaries
+obj/
+*.out
