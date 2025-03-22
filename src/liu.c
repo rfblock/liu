@@ -303,6 +303,31 @@ void build(char *dirname)
 	system(buf);
 }
 
+void clean(void)
+{
+	printf(TEXT_WARNING "This will delete all object files and generated binaries\n");
+
+	char buf[BUFSIZ];
+	// TODO: make `rm` a .liu variable
+	snprintf(buf, sizeof buf, "rm -rf %s", object_dir);
+	printf(TEXT_WARNING "exec: " ANSI_BOLD ANSI_UNDERLINE "%s" ANSI_RESET " [y/N] ", buf);
+
+	int in = getc(stdin);
+	if (in == 'y') {
+		system(buf);
+	}
+	while (in != '\n' && in != EOF) {
+		in = getc(stdin);
+	}
+
+	snprintf(buf, sizeof buf, "rm %s", binary_name);
+	printf(TEXT_WARNING "exec: " ANSI_BOLD ANSI_UNDERLINE "%s" ANSI_RESET " [y/N] ", buf);
+	in = getc(stdin);
+	if (in == 'y') {
+		system(buf);
+	}
+}
+
 int main(int argc, char** argv)
 {
 	if (argc == 1) {
@@ -325,8 +350,13 @@ int main(int argc, char** argv)
 	scan_liu_file();
 
 	if (!strcmp(cmd, "b") || !strcmp(cmd, "build")) {
-		// run_tests();
 		build(source_dir);
+		run_tests();
+		return 0;
+	}
+
+	if (!strcmp(cmd, "c") || !strcmp(cmd, "clean")) {
+		clean();
 		return 0;
 	}
 

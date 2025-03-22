@@ -34,11 +34,16 @@ SOURCE_DIR src/
 OBJECT_DIR obj/
 TRACELOG off
 ```
-### Building
+### Building liu
 To build, simply run `liu b`. **TODO**, add `liu d` and `liu r`
+
+### Building Examples
+(TODO: add `liu b basic`)
+To build the `basic` example, copy a liu binary to the directory, `cp liu examples/basic/` or add liu to your PATH. Then enter the directory, `cd examples/basic`. Then build as you would with liu, `./liu b`.
 
 ## Style guide
 If, for whatever reason, you decide to contribute to this, there are a few basic styling guidelines:
  * No more than 3 levels of indentation (tabs, 8 spaces per tab preferred)
  * Forward function declarations should be avoided
  * In documentation, the styling of liu (liu, Liu, or LIU) should be as inconsistent as possible
+ * Code may only be written after the hours of 3 a.m. (in whatever your local time is) to maximize erorrs.
