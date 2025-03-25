@@ -6,12 +6,18 @@
 #include <string.h>
 
 #ifdef WIN32
-	// TODO: Test this on a windows machine
 	#include <io.h>
 	#define F_OK 0
 	#define access _access
+	#define MKDIR "mkdir "
+	// this only works on cmd, not powershell
+	// TODO: rework mkdir to use file io
+	#define PIPE_SILENT " 2> NUL"
 #else
 	#include <unistd.h>
+	#define MKDIR "mkdir -p "
+	// TODO
+	#define PIPE_SILENT ""
 #endif
 
 #ifdef ENABLE_COLORS
@@ -88,11 +94,6 @@ void generate_liu_file(void) {
 	printf(ANSI_RESET);
 	#endif
 
-	if (access(file, F_OK) != 0) {
-		printf(TEXT_WARNING "Specified file " ANSI_RED ANSI_BOLD ANSI_UNDERLINE "%s" ANSI_RESET " does not exist, continuing\n", file);
-		// TODO: confirm [y/n]
-	}
-
 	FILE *fp = fopen(".liu", "w");
 	if (fp == NULL) {
 		printf(TEXT_FATAL " Could not create .liu file\n");
@@ -124,7 +125,7 @@ void generate_liu_file(void) {
 
 void scan_liu_file(void)
 {
-	FILE *fp = fopen(".liu", "r");
+	FILE *fp = fopen(".liu", "rb");
 	if (fp == NULL) {
 		printf(TEXT_FATAL "Could not read .liu file\n");
 		exit(-1);
@@ -201,11 +202,11 @@ void scan_liu_file(void)
 	}
 
 	if (source_dir == NULL) {
-		source_dir = "src/";
+		source_dir = "src";
 	}
 
 	if (object_dir == NULL) {
-		object_dir = "obj/";
+		object_dir = "obj";
 	}
 
 	if (binary_name == NULL) {
@@ -229,7 +230,7 @@ void run_tests(void)
 void add_object_path(const char *path)
 {
 	size_t len = strlen(path);
-	if (object_paths_size + len + 1 >= sizeof object_paths) {
+	if (object_paths_size + len + 2 >= sizeof object_paths) {
 		printf(TEXT_FATAL "Length of object paths exceeds buffer size\n");
 		exit(-1);
 	}
@@ -241,7 +242,8 @@ void add_object_path(const char *path)
 		object_paths_size++;
 	}
 	strcat(object_paths + object_paths_size, object_dir);
-	object_paths_size += strlen(object_dir);
+	object_paths_size += strlen(object_dir) + 1;
+	object_paths[object_paths_size - 1] = '/';
 	strcat(object_paths + object_paths_size, path);
 	object_paths_size += len;
 }
@@ -250,7 +252,7 @@ int build_file(const char *path, const struct stat *, int typeflag, struct FTW *
 {
 	if (typeflag == FTW_D) {
 		char buf[BUFSIZ];
-		snprintf(buf, sizeof buf, "mkdir -p %s/%s", object_dir, path);
+		snprintf(buf, sizeof buf, MKDIR "\"%s/%s\"" PIPE_SILENT, object_dir, path);
 		if (enable_tracelog) { printf("%s\n", buf); }
 		system(buf);
 	}
@@ -290,7 +292,7 @@ void build(char *dirname)
 	nftw(dirname, &build_file, 8, FTW_PHYS);
 	
 	char buf[BUFSIZ];
-	snprintf(buf, sizeof buf, "mkdir -p %s", object_dir); // TODO: turn `mkdir -p` into a liu var
+	snprintf(buf, sizeof buf, MKDIR "\"%s\"" PIPE_SILENT, object_dir); // TODO: turn `mkdir -p` into a liu var
 	if (enable_tracelog) { printf("%s\n", buf); }
 	system(buf);
 
