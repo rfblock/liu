@@ -1,6 +1,10 @@
-# Liu binary file
+# Binary files
 liu
 *.exe
+
+# Backup/temporary files
+~*
+*.bak
 
 # Compiled objects/binaries
 obj/

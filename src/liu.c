@@ -5,19 +5,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef WIN32
+#ifdef _WIN32
 	#include <io.h>
+	#include <windows.h>
 	#define F_OK 0
 	#define access _access
-	#define MKDIR "mkdir "
-	// this only works on cmd, not powershell
-	// TODO: rework mkdir to use file io
-	#define PIPE_SILENT " 2> NUL"
 #else
 	#include <unistd.h>
-	#define MKDIR "mkdir -p "
-	// TODO
-	#define PIPE_SILENT ""
 #endif
 
 #ifdef ENABLE_COLORS
@@ -32,6 +26,9 @@
 	#define ANSI_BLUE    "\x1B[34m"
 	#define ANSI_MAGENTA "\x1B[35m"
 	#define ANSI_CYAN    "\x1B[36m"
+	#define TEXT_WARNING ANSI_YELLOW ANSI_BOLD "warning" ANSI_RESET " "
+	#define TEXT_FATAL ANSI_RED ANSI_BOLD "fatal" ANSI_RESET " "
+	#define TEXT_TODO ANSI_BLUE ANSI_BOLD "todo" ANSI_RESET " "
 #else
 	#define ANSI_RESET   ""
 	#define ANSI_BOLD    ""
@@ -44,26 +41,26 @@
 	#define ANSI_BLUE    ""
 	#define ANSI_MAGENTA ""
 	#define ANSI_CYAN    ""
+	#define TEXT_WARNING "[warning] "
+	#define TEXT_FATAL "[fatal] "
+	#define TEXT_TODO "[todo] "
 #endif
 
-#define TEXT_WARNING ANSI_YELLOW ANSI_BOLD "warning" ANSI_RESET " "
-#define TEXT_FATAL ANSI_RED ANSI_BOLD "fatal" ANSI_RESET " "
-#define TEXT_TODO ANSI_BLUE ANSI_BOLD "todo" ANSI_RESET " "
-
-char *source_dir = NULL;
-char *object_dir = NULL;
-char *binary_name = NULL;
-char *compiler_flags = NULL;
-char *compiler_binary = NULL;
-char *enable_tracelog = NULL;
+char *liu_config_source_dir = NULL;
+char *liu_config_object_dir = NULL;
+char *liu_config_binary_name = NULL;
+char *liu_config_compiler_flags = NULL;
+char *liu_config_compiler_binary = NULL;
+char *liu_config_enable_tracelog = NULL;
+char *liu_config_replace_binary = NULL;
 
 char object_paths[BUFSIZ];
 size_t object_paths_size = 0;
 
-void help(char *arg0)
+void liu_show_help(char *arg0)
 {
 	printf(
-		"Usage: %s command\n"
+		"Usages: %s command\n"
 		"Commands:\n"
 		"\tg, generate\tGenerates a .liu file (interactive)\n"
 		"\n"
@@ -80,7 +77,7 @@ void help(char *arg0)
 	);
 }
 
-void generate_liu_file(void) {
+void liu_generate_liu_file(void) {
 	char file[256];
 	
 	if (access(".liu", F_OK) == 0) {
@@ -123,7 +120,7 @@ void generate_liu_file(void) {
 	fclose(fp);
 }
 
-void scan_liu_file(void)
+void liu_scan_liu_file(void)
 {
 	FILE *fp = fopen(".liu", "rb");
 	if (fp == NULL) {
@@ -159,17 +156,19 @@ void scan_liu_file(void)
 
 		char **value = NULL;
 		if (!strcmp(key, "SOURCE_DIR")) {
-			value = &source_dir;
+			value = &liu_config_source_dir;
 		} else if (!strcmp(key, "OBJECT_DIR")) {
-			value = &object_dir;
+			value = &liu_config_object_dir;
 		} else if (!strcmp(key, "BINARY_NAME")) {
-			value = &binary_name;
+			value = &liu_config_binary_name;
 		} else if (!strcmp(key, "COMPILER_FLAGS")) {
-			value = &compiler_flags;
+			value = &liu_config_compiler_flags;
 		} else if (!strcmp(key, "CC")) {
-			value = &compiler_binary;
+			value = &liu_config_compiler_binary;
 		} else if (!strcmp(key, "TRACELOG")) {
-			value = &enable_tracelog;
+			value = &liu_config_enable_tracelog;
+		} else if (!strcmp(key, "REPLACE_BINARY")) {
+			value = &liu_config_replace_binary;
 		}
 
 		if (value == NULL) {
@@ -201,33 +200,38 @@ void scan_liu_file(void)
 		}
 	}
 
-	if (source_dir == NULL) {
-		source_dir = "src";
+	if (liu_config_source_dir == NULL) {
+		liu_config_source_dir = "src";
 	}
 
-	if (object_dir == NULL) {
-		object_dir = "obj";
+	if (liu_config_object_dir == NULL) {
+		liu_config_object_dir = "obj";
 	}
 
-	if (binary_name == NULL) {
-		binary_name = "main";
+	if (liu_config_binary_name == NULL) {
+		liu_config_binary_name = "main";
 	}
 
 	// Clear boolean values if set to "off"
-	if (enable_tracelog && !strcmp(enable_tracelog, "off")) {
-		free(enable_tracelog);
-		enable_tracelog = NULL;
+	if (liu_config_enable_tracelog && !strcmp(liu_config_enable_tracelog, "off")) {
+		free(liu_config_enable_tracelog);
+		liu_config_enable_tracelog = NULL;
+	}
+
+	if (liu_config_replace_binary && !strcmp(liu_config_replace_binary, "off")) {
+		free(liu_config_replace_binary);
+		liu_config_replace_binary = NULL;
 	}
 
 	fclose(fp);
 }
 
-void run_tests(void)
+void liu_run_tests(void)
 {
-	printf(TEXT_TODO "run_tests\n");
+	printf(TEXT_TODO "liu_run_tests\n");
 }
 
-void add_object_path(const char *path)
+void liu_add_object_path(const char *path)
 {
 	size_t len = strlen(path);
 	if (object_paths_size + len + 2 >= sizeof object_paths) {
@@ -241,20 +245,74 @@ void add_object_path(const char *path)
 		strcat(object_paths + object_paths_size, " ");
 		object_paths_size++;
 	}
-	strcat(object_paths + object_paths_size, object_dir);
-	object_paths_size += strlen(object_dir) + 1;
+	strcat(object_paths + object_paths_size, liu_config_object_dir);
+	object_paths_size += strlen(liu_config_object_dir) + 1;
 	object_paths[object_paths_size - 1] = '/';
 	strcat(object_paths + object_paths_size, path);
 	object_paths_size += len;
 }
 
-int build_file(const char *path, const struct stat *, int typeflag, struct FTW *)
+void liu_mkdir_silent(const char *path)
+{
+#ifdef _WIN32
+	mkdir(path);
+#else
+	mkdir(path, 755);
+#endif
+	if (liu_config_enable_tracelog) {
+		printf("mkdir %s\n", path);
+	}
+}
+
+void liu_rename_file(const char *from, const char *to)
+{
+	if (liu_config_enable_tracelog) {
+		printf("rename %s %s\n", from, to);
+	}
+	rename(from, to);
+}
+
+void liu_remove(const char *path)
+{
+	if (liu_config_enable_tracelog) {
+		printf("remove %s\n", path);
+	}
+	remove(path);
+}
+
+void liu_replace_binary(void)
+{
+	char current_binary[BUFSIZ];
+	char dead_binary[BUFSIZ];
+	char new_binary[BUFSIZ];
+
+
+	// On windows and the file is bare (gcc automatically adds ".exe")
+#ifdef _WIN32
+	if (!strchr(liu_config_binary_name, '.')) {
+		snprintf(current_binary, sizeof current_binary, "%s.exe", liu_config_binary_name);
+		snprintf(dead_binary, sizeof dead_binary, "%s.exe.bak", liu_config_binary_name);
+		snprintf(new_binary, sizeof current_binary, "~%s.exe", liu_config_binary_name);
+	} else
+#endif
+	// On linux or the file has an extension
+	{
+		snprintf(current_binary, sizeof current_binary, "%s", liu_config_binary_name);
+		snprintf(dead_binary, sizeof dead_binary, "%s.bak", liu_config_binary_name);
+		snprintf(new_binary, sizeof current_binary, "~%s", liu_config_binary_name);
+	}
+
+	liu_remove(dead_binary);
+	liu_rename_file(current_binary, dead_binary);
+	liu_rename_file(new_binary, current_binary);
+}
+
+int liu_build_file(const char *path, const struct stat *, int typeflag, struct FTW *)
 {
 	if (typeflag == FTW_D) {
 		char buf[BUFSIZ];
-		snprintf(buf, sizeof buf, MKDIR "\"%s/%s\"" PIPE_SILENT, object_dir, path);
-		if (enable_tracelog) { printf("%s\n", buf); }
-		system(buf);
+		snprintf(buf, sizeof buf, "%s/%s", liu_config_object_dir, path);
+		liu_mkdir_silent(buf);
 	}
 
 	if (typeflag != FTW_F) { return 0; }
@@ -269,17 +327,17 @@ int build_file(const char *path, const struct stat *, int typeflag, struct FTW *
 	char *obj_name = malloc(strlen(path) + 1);
 	strcpy(obj_name, path);
 	strcpy(strrchr(obj_name, '.'), ".o");
-	add_object_path(obj_name);
+	liu_add_object_path(obj_name);
 	
-	// cc -o obj/{path} -c {path}
+	// {cc} -o obj/{path} -c {flags} {path}
 	// TODO: multi-core this
 	char buf[BUFSIZ];
-	int ret = snprintf(buf, sizeof buf, "%s -o %s/%s -c %s %s", compiler_binary, object_dir, obj_name, compiler_flags, path);
+	int ret = snprintf(buf, sizeof buf, "%s -o %s/%s -c %s %s", liu_config_compiler_binary, liu_config_object_dir, obj_name, liu_config_compiler_flags, path);
 	if (ret < 0) {
 		printf(TEXT_FATAL "Could not compile object\n");
 		exit(-1);
 	}
-	if (enable_tracelog) { printf("%s\n", buf); }
+	if (liu_config_enable_tracelog) { printf("%s\n", buf); }
 	system(buf);
 
 	free(obj_name);
@@ -287,23 +345,33 @@ int build_file(const char *path, const struct stat *, int typeflag, struct FTW *
 	return 0;
 }
 
-void build(char *dirname)
+void liu_build_all(char *dirname)
 {
-	nftw(dirname, &build_file, 8, FTW_PHYS);
+	printf("BEGIN BUILD\n");
+	liu_mkdir_silent(liu_config_object_dir);
 	
-	char buf[BUFSIZ];
-	snprintf(buf, sizeof buf, MKDIR "\"%s\"" PIPE_SILENT, object_dir); // TODO: turn `mkdir -p` into a liu var
-	if (enable_tracelog) { printf("%s\n", buf); }
-	system(buf);
+	nftw(dirname, &liu_build_file, 8, FTW_PHYS);
+	
+	char *binary_prefix = liu_config_replace_binary ? "~" : "";
 
-	int ret = snprintf(buf, sizeof buf, "%s -o %s %s", compiler_binary, binary_name, object_paths);
+	char buf[BUFSIZ];
+	int ret = snprintf(buf, sizeof buf, "%s -o %s%s %s", liu_config_compiler_binary, binary_prefix, liu_config_binary_name, object_paths);
+	if (liu_config_enable_tracelog) { printf("%s\n", buf); }
 	if (ret < 0) {
 		printf(TEXT_FATAL "Could not link files\n");
 		exit(-1);
 	}
-	if (enable_tracelog) { printf("%s\n", buf); }
 	system(buf);
+
+	if (liu_config_replace_binary) {
+		liu_replace_binary();
+	}
 }
+
+// void run(void)
+// {
+// 	execl()
+// }
 
 void clean(void)
 {
@@ -311,7 +379,7 @@ void clean(void)
 
 	char buf[BUFSIZ];
 	// TODO: make `rm` a .liu variable
-	snprintf(buf, sizeof buf, "rm -rf %s", object_dir);
+	snprintf(buf, sizeof buf, "rm -rf %s", liu_config_object_dir);
 	printf(TEXT_WARNING "exec: " ANSI_BOLD ANSI_UNDERLINE "%s" ANSI_RESET " [y/N] ", buf);
 
 	int in = getc(stdin);
@@ -322,7 +390,7 @@ void clean(void)
 		in = getc(stdin);
 	}
 
-	snprintf(buf, sizeof buf, "rm %s", binary_name);
+	snprintf(buf, sizeof buf, "rm %s", liu_config_binary_name);
 	printf(TEXT_WARNING "exec: " ANSI_BOLD ANSI_UNDERLINE "%s" ANSI_RESET " [y/N] ", buf);
 	in = getc(stdin);
 	if (in == 'y') {
@@ -334,26 +402,26 @@ int main(int argc, char** argv)
 {
 	if (argc == 1) {
 		printf(ANSI_RED ANSI_BOLD ANSI_UNDERLINE "No liu command" ANSI_RESET "\n\n");
-		help(argv[0]);
+		liu_show_help(argv[0]);
 		return 0;
 	}
 
 	char *cmd = argv[1];
 	if (!strcmp(cmd, "h") || !strcmp(cmd, "help")) {
-		help(argv[0]);
+		liu_show_help(argv[0]);
 		return 0;
 	}
 
 	if (!strcmp(cmd, "g") || !strcmp(cmd, "generate")) {
-		generate_liu_file();
+		liu_generate_liu_file();
 		return 0;
 	}
 	
-	scan_liu_file();
+	liu_scan_liu_file();
 
 	if (!strcmp(cmd, "b") || !strcmp(cmd, "build")) {
-		build(source_dir);
-		run_tests();
+		liu_build_all(liu_config_source_dir);
+		liu_run_tests();
 		return 0;
 	}
 
