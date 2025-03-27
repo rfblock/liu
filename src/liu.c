@@ -60,7 +60,7 @@ size_t object_paths_size = 0;
 void liu_show_help(char *arg0)
 {
 	printf(
-		"Usages: %s command\n"
+		"Usage: %s command\n"
 		"Commands:\n"
 		"\tg, generate\tGenerates a .liu file (interactive)\n"
 		"\n"
@@ -272,12 +272,40 @@ void liu_rename_file(const char *from, const char *to)
 	rename(from, to);
 }
 
-void liu_remove(const char *path)
+void liu_remove_file(const char *path)
 {
 	if (liu_config_enable_tracelog) {
 		printf("remove %s\n", path);
 	}
 	remove(path);
+}
+
+void liu_remove_dir(const char *path)
+{
+	if (liu_config_enable_tracelog) {
+		printf("remove %s\n", path);
+	}
+
+	rmdir(path);
+}
+
+int liu_remove_recursive__(const char *path, const struct stat *, int typeflag, struct FTW *)
+{
+	switch (typeflag) {
+	case FTW_F:
+		liu_remove_file(path);
+		break;
+	case FTW_DP:
+		liu_remove_dir(path);
+		break;
+	}
+
+	return 0;
+}
+
+void liu_remove_recursive(const char *path)
+{
+	nftw(path, &liu_remove_recursive__, 8, FTW_DEPTH | FTW_PHYS);
 }
 
 void liu_replace_binary(void)
@@ -302,7 +330,7 @@ void liu_replace_binary(void)
 		snprintf(new_binary, sizeof current_binary, "~%s", liu_config_binary_name);
 	}
 
-	liu_remove(dead_binary);
+	liu_remove_file(dead_binary);
 	liu_rename_file(current_binary, dead_binary);
 	liu_rename_file(new_binary, current_binary);
 }
@@ -375,26 +403,23 @@ void liu_build_all(char *dirname)
 
 void clean(void)
 {
-	printf(TEXT_WARNING "This will delete all object files and generated binaries\n");
+	printf(TEXT_WARNING "Delete object files?\n");
 
-	char buf[BUFSIZ];
-	// TODO: make `rm` a .liu variable
-	snprintf(buf, sizeof buf, "rm -rf %s", liu_config_object_dir);
-	printf(TEXT_WARNING "exec: " ANSI_BOLD ANSI_UNDERLINE "%s" ANSI_RESET " [y/N] ", buf);
+	printf(TEXT_WARNING "exec: " ANSI_BOLD ANSI_UNDERLINE "remove %s" ANSI_RESET " [Y/n] ", liu_config_object_dir);
 
 	int in = getc(stdin);
-	if (in == 'y') {
-		system(buf);
+	if (in == '\n' || in == 'y') {
+		liu_remove_recursive(liu_config_object_dir);
 	}
 	while (in != '\n' && in != EOF) {
 		in = getc(stdin);
 	}
 
-	snprintf(buf, sizeof buf, "rm %s", liu_config_binary_name);
-	printf(TEXT_WARNING "exec: " ANSI_BOLD ANSI_UNDERLINE "%s" ANSI_RESET " [y/N] ", buf);
+	printf(TEXT_WARNING "Delete generated binaries?\n");
+	printf(TEXT_WARNING "exec: " ANSI_BOLD ANSI_UNDERLINE "remove %s" ANSI_RESET " [y/N] ", liu_config_binary_name);
 	in = getc(stdin);
 	if (in == 'y') {
-		system(buf);
+		remove(liu_config_binary_name);
 	}
 }
 
